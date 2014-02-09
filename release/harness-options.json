@@ -1,0 +1,111 @@
+{
+ "enable_e10s": false, 
+ "is-sdk-bundled": true, 
+ "jetpackID": "jid0-GlobalFindBar@jetpack", 
+ "loader": "addon-sdk/lib/sdk/loader/cuddlefish.js", 
+ "main": "main", 
+ "mainPath": "globalfindbar/main", 
+ "manifest": {
+  "globalfindbar/main": {
+   "docsSHA256": null, 
+   "jsSHA256": "49e11f628a2b1035f13e7266826be32deffb38577da285577a90823e561923d4", 
+   "moduleName": "main", 
+   "packageName": "globalfindbar", 
+   "requirements": {
+    "chrome": "chrome"
+   }, 
+   "sectionName": "lib"
+  }
+ }, 
+ "metadata": {
+  "addon-sdk": {
+   "description": "Add-on development made easy.", 
+   "keywords": [
+    "javascript", 
+    "engine", 
+    "addon", 
+    "extension", 
+    "xulrunner", 
+    "firefox", 
+    "browser"
+   ], 
+   "license": "MPL 2.0", 
+   "name": "addon-sdk"
+  }, 
+  "globalfindbar": {
+   "author": "Noitidart", 
+   "description": "Fore Firefox 25+ reverts the findbar to global behavior.", 
+   "main": "main", 
+   "name": "globalfindbar", 
+   "version": "1.0"
+  }
+ }, 
+ "name": "globalfindbar", 
+ "preferences": [
+  {
+   "description": "Applies the pre-FF25 looks to the find bar", 
+   "name": "restore_old_style", 
+   "title": "Restore Old Style", 
+   "type": "bool", 
+   "value": true
+  }, 
+  {
+   "description": "Findbar state is matched in tabs that meet this criteria", 
+   "name": "tabScope", 
+   "options": [
+    {
+     "label": "All Tabs", 
+     "value": "0"
+    }, 
+    {
+     "label": "Per Tab Domain", 
+     "value": "1"
+    }
+   ], 
+   "title": "Tab Scope", 
+   "type": "menulist", 
+   "value": 0
+  }, 
+  {
+   "description": "Findbar state is matched in windows that meet this criteria", 
+   "name": "winScope", 
+   "options": [
+    {
+     "label": "Per Window", 
+     "value": "0"
+    }, 
+    {
+     "label": "All Windows", 
+     "value": "1"
+    }
+   ], 
+   "title": "Window Scope", 
+   "type": "menulist", 
+   "value": 0
+  }, 
+  {
+   "description": "Criteria defining if opened findbar should be focused when tab is selected", 
+   "name": "findbarFocus", 
+   "options": [
+    {
+     "label": "Always", 
+     "value": "0"
+    }, 
+    {
+     "label": "When Active Element NOT Editable", 
+     "value": "1"
+    }, 
+    {
+     "label": "Never", 
+     "value": "2"
+    }
+   ], 
+   "title": "Findbar Autofocus", 
+   "type": "menulist", 
+   "value": 0
+  }
+ ], 
+ "sdkVersion": "1.14", 
+ "staticArgs": {}, 
+ "verbose": false
+}
