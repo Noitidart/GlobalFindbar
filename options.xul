@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <setting data-jetpack-id="jid0-GlobalFindBar@jetpack" pref="extensions.jid0-GlobalFindBar@jetpack.restore_old_style" pref-name="restore_old_style" title="Restore Old Style" type="bool">
+    Applies the pre-FF25 looks to the find bar.
+  </setting>
+</vbox>

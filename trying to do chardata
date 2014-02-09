@@ -1,0 +1,32 @@
+var findbar = gBrowser.selectedTab._findBar;
+var findfield = findbar._findField
+var fieldhbox = findfield.ownerDocument.getAnonymousNodes(findfield)[0];
+var htmlfield = fieldhbox.ownerDocument.getAnonymousNodes(fieldhbox)[0];
+
+// select the target node
+var target = htmlfield;
+// create an observer instance
+var observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(mutation) {
+						var str = [];
+						for (var yy in mutation) {
+							str.push('mutation.' + yy + ' = "' + mutation[yy] + '"');
+							if (yy == 'addedNodes' || yy == 'removedNodes') {
+								for (var zz=0; zz<mutation[yy].length; zz++) {
+									str.push('nodeName[' + zz + '] = "' + mutation[yy][zz].nodeName + '"');
+								}
+							}
+							if (yy == 'target') {
+								str.push('target nodeName = "' + mutation[yy].nodeName + '"');
+								str.push('target anonid = "' + mutation[yy].anonid + '"');
+								str.push('target get att anonid = "' + mutation[yy].getAttribute('anonid') + '"');
+							}
+						}
+						Cu.reportError(str.join('\n'));
+  });    
+});
+ 
+
+var config = { attributes: true, childList: true, characterData: true, subtree:true, characterDataOldValue:true, attributeOldValue:true };
+observer.observe(target, config);
+observer.disconnect();

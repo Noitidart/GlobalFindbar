@@ -1,0 +1,37 @@
+var element = gBrowser.contentDocument.activeElement
+
+//nsIDOMHTMLTextAreaElement
+//let editable = (element instanceof Ci.HTMLInputElement && element.mozIsTextField(false)) || this._isEditable(element);
+function _isEditable(aElement) {
+     if (!aElement)
+       return false;
+     let canEdit = false;
+ 
+     if (aElement.isContentEditable || aElement.designMode == "on") {
+       canEdit = true;
+     } else if (aElement instanceof HTMLIFrameElement &&
+                (aElement.contentDocument.body.isContentEditable ||
+                 aElement.contentDocument.designMode == "on")) {
+       canEdit = true;
+     } else {
+       canEdit = aElement.ownerDocument && aElement.ownerDocument.designMode == "on";
+     }
+ 
+     return canEdit;
+}
+
+function mozIsTextField(aElement) {
+    try {
+        return element.mozIsTextField(false)
+    } catch (ex) {
+        return false
+    }
+}
+
+var arr = [element instanceof HTMLInputElement, element instanceof Ci.nsIDOMHTMLTextAreaElement, mozIsTextField(element) , _isEditable(element)];
+var str = [];
+str.push('element instanceof HTMLInputElement = ' + arr[0]);
+str.push('element instanceof Ci.nsIDOMHTMLTextAreaElement = ' + arr[1]);
+str.push('mozIsTextField(element) = ' + arr[2]);
+str.push('_isEditable(element) = ' + arr[3]);
+alert(str.join('\n'))

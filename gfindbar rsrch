@@ -1,0 +1,331 @@
+//alert(ge.explicitOriginalTarget.nodeName)
+/*
+gBrowser.selectedTab._findBar.removeEventListener('change', chgd, false);
+//var ge;
+var chgd = function(e) {
+    var findbar = e.target;
+    //alert(e.target.nodeName); //findbar
+    //alert(e.originalTarget.nodeName); //html:input
+    //alert(e.explicitOriginalTarget.nodeName); //findbar
+    //alert(e.currentTarget.nodeName); //findbar
+    
+}
+gBrowser.selectedTab._findBar.addEventListener('change', chgd, false);
+*/
+/*
+////////////
+//trying to get aXULWindow and aDOMWindow from tabseld event
+try {
+gBrowser.tabContainer.removeEventListener("TabSelect", exampleTabSelected, false);
+} catch (ex) {}
+
+var exampleTabSelected = function(event) { //made it var so i can do the remove, if function it doesnt remove it
+    var cTab = event.target; //equivalent of in the window loop of: aXULWindow.gBrowser.tabContainer.childNodes[7];
+    var cXULWindow = event.target.ownerDocument.defaultView;
+    var cGBrowser = cXULWindow.gBrowser;
+    var cDOMWindow = cXULWindow.QueryInterface(Ci.nsIDOMWindow);
+    
+      //var findbar = aTab._findBar;
+      //if(!findbar) {
+      //  findbar = tabbrowser.getFindBar(aTab);
+      //}
+      //var gBrowser = findbar._browser.ownerDocument.defaultView.gBrowser;
+      //var windowThatIsSameFromScratchpadWindow = findbar._browser.ownerDocument.defaultView;
+      //var browserXulElement = findbar._browser; //and its contentWindow is the window of the tab and contentDocument is the document in the tab
+		 let XULWindows = Services.wm.getEnumerator('navigator:browser');
+			let aXULWindow = XULWindows.getNext();
+			let aDOMWindow = aXULWindow.QueryInterface(Ci.nsIDOMWindow);
+			
+		    var aTab = aXULWindow.gBrowser.tabContainer.childNodes[0];
+			alert(aXULWindow.gBrowser == aDOMWindow.gBrowser);
+
+}
+//gBrowser.tabContainer.addEventListener("TabSelect", exampleTabSelected, false);
+///////////
+*/
+/*
+function exampleTabSelected(event) {
+    var aTab = event.target;
+    var findbar = aTab._findBar;
+    //force show bypassing animation
+        findbar.addEventListener('transitionend', function(){ findbar.removeEventListener('transitionend', arguments.callee, true); findbar.removeAttribute('style');}, true);
+        findbar.setAttribute('style','transition-property:min-width;min-width:2px;');
+        findbar.removeAttribute('hidden');
+}
+gBrowser.tabContainer.addEventListener("TabSelect", exampleTabSelected, false);
+*/
+
+/*
+/////////////////////
+////researching how to get windows from findbar
+  var browserEnumerator = Services.wm.getEnumerator("navigator:browser");
+  while (browserEnumerator.hasMoreElements()) {
+    var browserWin = browserEnumerator.getNext();
+    var tabbrowser = browserWin.gBrowser;
+    var numTabs = tabbrowser.browsers.length;
+    
+    for (var index = 0; index < numTabs; index++) {
+      //var currentBrowser = tabbrowser.getBrowserAtIndex(index);
+      var aTab = tabbrowser.tabContainer.childNodes[index];
+      var findbar = aTab._findBar;
+      if(!findbar) {
+        findbar = tabbrowser.getFindBar(aTab);
+      }
+      //var gBrowser = findbar._browser.ownerDocument.defaultView.gBrowser;
+      //var windowThatIsSameFromScratchpadWindow = findbar._browser.ownerDocument.defaultView;
+      //var browserXulElement and its contentWindow is the window of the tab and contentDocument is the document in the tab
+      cDump(findbar._browser.currentURI)
+        break;
+    }
+  }
+/////////////////////
+*/
+/*
+///////////////
+//uri cdump specifically: findbar._browser.currentURI
+
+spec=http://mxr.mozilla.org/mozilla-release/source/browser/base/content/browser.js#53
+equals=function equals() {
+    [native code]
+}
+schemeIs=function schemeIs() {
+    [native code]
+}
+host=mxr.mozilla.org
+scheme=http
+prePath=http://mxr.mozilla.org
+userPass=
+username=
+password=
+hostPort=mxr.mozilla.org
+port=-1
+path=/mozilla-release/source/browser/base/content/browser.js#53
+clone=function clone() {
+    [native code]
+}
+resolve=function resolve() {
+    [native code]
+}
+asciiSpec=http://mxr.mozilla.org/mozilla-release/source/browser/base/content/browser.js#53
+asciiHost=mxr.mozilla.org
+originCharset=UTF-8
+ref=53
+equalsExceptRef=function equalsExceptRef() {
+    [native code]
+}
+cloneIgnoringRef=function cloneIgnoringRef() {
+    [native code]
+}
+specIgnoringRef=http://mxr.mozilla.org/mozilla-release/source/browser/base/content/browser.js
+hasRef=true
+QueryInterface=function QueryInterface() {
+    [native code]
+}
+
+///////////////
+*/
+
+/*
+var domTabbrowser = document.querySelector('tabbrowser');
+var anonTabpanels = domTabbrowser.ownerDocument.getAnonymousElementByAttribute(domTabbrowser, 'class','plain')
+//alert(domEl + '\n\n' + anonTabpanels.tagName);
+var tabs = anonTabpanels.children;
+var findbarPerTab = [];
+for (var i=0; i<tabs.length; i++) {
+    //alert(tabs[i].innerHTML);//tabs[i].ownerDocument.getAnonymousElementByAttribute(tabs[i], 'anonid', 'findbar-container');
+    var findbar = tabs[i].getElementsByTagName('findbar');
+    if (findbar.length == 1) {
+        findbar = findbar[0];
+        alert(findbar.hasAttribute('hidden'))
+    }    
+    //alert(findbar.updateControlState);
+    findbarPerTab.push({tabNotificationbox: tabs[i], findbar: findbar})
+}
+*/
+
+//          return (aTab || this.selectedTab)._findBar != undefined;
+/*
+function getFindBar(aTab) {
+
+          if (!aTab)
+            aTab = this.selectedTab;
+
+          if (aTab._findBar)
+            return aTab._findBar;
+
+          let findBar = document.createElementNS(this.namespaceURI, "findbar");
+          let browser = this.getBrowserForTab(aTab);
+          let browserContainer = this.getBrowserContainer(browser);
+          browserContainer.appendChild(findBar);
+
+          // Force a style flush to ensure that our binding is attached.
+          findBar.clientTop;
+
+          findBar.browser = browser;
+          findBar._findField.value = this._lastFindValue;
+
+          aTab._findBar = findBar;
+
+          let event = document.createEvent("Events");
+          event.initEvent("TabFindInitialized", true, false);
+          aTab.dispatchEvent(event);
+
+          return findBar;
+        
+}
+*/
+
+/*
+// select the target node
+var target = document.querySelector('#some-id');
+// create an observer instance
+var observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(mutation) {
+    console.log(mutation.type);
+  });    
+});
+// configuration of the observer:
+var config = { attributes: true, childList: true, characterData: true };
+// pass in the target node, as well as the observer options
+observer.observe(target, config);
+// later, you can stop observing
+observer.disconnect();
+*/
+
+
+/*
+//////////
+//working adding mObservers
+//mObservers[0].obs.disconnect()
+  for (var m=0; m<mObservers.length; m++) {
+    if (mObservers[m].win == domWindow) {
+        mObservers[m].obs.disconnect()
+    }
+  }
+
+//var mObservers = []; //a new observer per window //holds [{win: window, obs: observer}
+var mObserverConfig = { attributes: true };
+
+  var browserEnumerator = Services.wm.getEnumerator("navigator:browser");
+  while (browserEnumerator.hasMoreElements()) {
+    var browserWin = browserEnumerator.getNext();
+    var tabbrowser = browserWin.gBrowser;
+    var numTabs = tabbrowser.browsers.length;
+    var domWindow = browserWin.QueryInterface(Ci.nsIDOMWindow);
+    
+    for (var index = 0; index < numTabs; index++) {
+      //var currentBrowser = tabbrowser.getBrowserAtIndex(index);
+      var aTab = tabbrowser.tabContainer.childNodes[index];
+      var findbar = aTab._findBar;
+      if(!findbar) {
+        findbar = tabbrowser.getFindBar(aTab);
+      }
+      
+      var obsForWinFound = false;
+      for (var m=0; m<mObservers.length; m++) {
+        if (mObservers[m].win == domWindow) {
+            mObservers[m].obs.observe(findbar, mObserverConfig);
+            obsForWinFound = true;
+            break;
+        }
+      }
+      
+      if (!obsForWinFound) {
+        mObservers.push({
+            win: domWindow,
+            obs: new domWindow.MutationObserver(function(mutations) {
+                     mutations.forEach(function(mutation) {
+                        var attributeName = mutation.attributeName;
+                        if (attributeName == 'hidden') {
+                            var oldValue = mutation.oldValue;
+                            Cu.reportError(attributeName + ' changed to ' + mutation.target.getAttribute('hidden'));
+                            //cDump(mutation);
+                        }
+                     });    
+                 })
+        });
+        mObservers[mObservers.length-1].obs.observe(findbar, mObserverConfig);
+      }
+      break;
+    }
+  }
+//note: todo: add in window listener object to nsiwindowmediator documentation  
+//////////
+*/
+
+/*
+///mutation cdump
+type=attributes
+target=[object XULElement]
+addedNodes=[object NodeList]
+removedNodes=[object NodeList]
+previousSibling=null
+nextSibling=null
+attributeName=hidden
+attributeNamespace=null
+oldValue=null
+////
+*/
+
+//gFindBar.updateControlState(0,false); //sets gFindBar to as if it just opened, so if phrase not found or repeat from top msg displayed its removed, false/true only makes diff for if result is 2, other reults can be 0 1 3
+//alert(gFindBarInitialized) //to initalize just do gFindBar
+/*
+
+  var wm = Services.wm;
+  var browserEnumerator = wm.getEnumerator("navigator:browser");
+
+  // Check each browser instance for our URL
+  while (browserEnumerator.hasMoreElements()) {
+    var browserWin = browserEnumerator.getNext();
+    var tabbrowser = browserWin.gBrowser;
+
+    // Check each tab of this browser instance
+    var numTabs = tabbrowser.browsers.length;
+    for (var index = 0; index < numTabs; index++) {
+      var currentBrowser = tabbrowser.getBrowserAtIndex(index);
+      alert(tabbrowser.getBrowserAtIndex(index).contentDocument);
+    }
+  }
+  
+ function getChromeWindow(domWindow) {
+   var containingBrowser = domWindow.QueryInterface(Ci.nsIInterfaceRequestor)
+                                    .getInterface(Ci.nsIWebNavigation)
+                                    .QueryInterface(Ci.nsIDocShell)
+                                    .chromeEventHandler;
+   return containingBrowser.ownerDocument.defaultView;
+ }
+//proved that gFindBar is a window object, and it seems to bind unbind as tab select
+*/
+/*
+//note: works
+var controller = gFindBar.browser.docShell.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsISelectionDisplay).QueryInterface(Ci.nsISelectionController);
+var selection = controller.getSelection(controller.SELECTION_FIND);
+alert(selection)
+*/
+//cDump(controller)
+
+function cDump(obj) {
+    var tstr = '';
+    var bstr = '';
+    var fstr = '';
+    for (var b in obj) {
+        try{
+            bstr += b+'='+obj[b]+'\n';
+        } catch (e) {
+                fstr = b+'='+e+'\n';
+        }
+    }
+    tstr += '<b>BSTR::</b>\n' + bstr;
+    tstr += '\n<b>FSTR::</b>\n' + fstr;
+      
+    var cWin = Services.wm.getMostRecentWindow('navigator:browser');
+   
+    var onloadFunc = function() {
+        cWin.gBrowser.selectedTab = cWin.gBrowser.tabContainer.childNodes[cWin.gBrowser.tabContainer.childNodes.length-1];
+        newTabBrowser.removeEventListener('load', onloadFunc, true);
+        newTabBrowser.contentDocument.body.innerHTML = tstr.replace(/\n/g,'<br>')
+    };
+   
+    var newTabBrowser = cWin.gBrowser.getBrowserForTab(cWin.gBrowser.addTab('about:blank'));
+    newTabBrowser.addEventListener('load', onloadFunc, true);
+}

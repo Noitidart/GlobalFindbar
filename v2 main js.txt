@@ -1,0 +1,548 @@
+const {Cc, Ci, Cu, components} = require('chrome');
+const selfId = 'jid0-GlobalFindBar';
+const selfTitle = 'globalfindbar';
+const selfPath = 'resource://' + selfId + '-at-jetpack/' + selfTitle + '/'; //NOTE - this must be gotten from "Properties" panel //example: selfPath + 'data/style/global.css'
+const prefPrefix = 'extensions.' + selfId + '@jetpack.'; //for the pref stuff //jetpack stuff has @jetpack appended //note must have period at end because when do branch.set if no period then there is no period between prefix and the set name, likewise for get
+
+Cu.import("resource://gre/modules/Services.jsm");
+const wm = Services.wm; //Cc['@mozilla.org/appshell/window-mediator;1'].getService(Ci.nsIWindowMediator);
+const as = Cc["@mozilla.org/alerts-service;1"].getService(Ci.nsIAlertsService);
+const obs = Services.obs; //Cc['@mozilla.org/observer-service;1'].getService(Ci.nsIObserverService);
+const ps = Services.prefs; //Cc['@mozilla.org/preferences-service;1'].getService(Ci.nsIPrefBranch);
+
+var findbarVals = []; //holds {win: win, domain: domain, val: findbar_value, hid: findbar_hidden}
+
+var mObservers = []; //a new mutation observer per window //holds [{win: window, obs: observer}
+var mObserverConfig = { attributes: true };
+
+var programaticallyTogglingHid = false;
+
+var observers = {
+    /*
+	inlineOptsHid: {
+		observe:	function(aSubject, aTopic, aData) {
+						notify('incoming inlineOptsHid: aSubject = ' + aSubject + ' | aTopic = ' + aTopic + ' | aData = ' + aData);
+						if (aTopic == 'addon-options-hidden' && aData == selfId + '@jetpack') {
+							addonMgrXulWin = null; //trial as of 112713
+						}
+					},
+		reg:	function() {
+				obs.addObserver(observers.inlineOptsHid, 'addon-options-hidden', false);
+			},
+		unreg:	function() {
+				obs.removeObserver(observers.inlineOptsHid, 'addon-options-hidden');
+			}
+	}
+    */
+};
+
+////start pref listener stuff
+//edit prefs objection ONLY
+//all pref paths are preceded with: 'extensions.' + selfTitle + '.
+var prefs = { //each key here must match the exact name the pref is saved in the about:config database (without the prefix)
+    /*
+    hotkey_hopTabCurWin: {
+		default: '{"keycode":19, "action":"upped", "mods":[]}',
+		value: null, //the current value, initialize on addon statup NEVER SET VALUE PROGRAMATICALLY, IF NEED TO SET VALUE THEN USE THE prefs[name].setval function, this is because onChange callback I use .value to figure out oldVal. setval func is like setting the pref in about:config, if json pref then must supply object
+		type: 'Char', //call later on by going ps.['get' + pefs.blah.type + 'Pref'](prefs.blah.value) AND OR ps.['set' + pefs.blah.type + 'Pref'](prefs.blah.value)
+		json: null, //if json is true then JSON.parse'ed when value is set, it should hold the non-parsed version of value (this saves the callback from running a JSON.stringify when figuring out oldValue
+		onChange: hotkeyPref_onChange//this is additonal stuff you want to happen when pref observer finds it changes, by default on observe prefs.blah.value is matched to the new value, THIS SHOULD ALSO EXEC ON INIT(/ADDON STARTUP)		//so in all observers, whenever a pref is changed, it will set the prefs.blah.value to new value. onPreChange fires before prefs.blah.value is matched to new val		//onChange fires after value is matched to new val
+	},
+    */
+	tabScope: {
+		default: 0, //0 = all tabs, 1 = per tab domain
+		value: null,
+		type: 'Int'
+	},
+	winScope: {
+		default: 0, //0 = per window, 1 = per profile so all windows
+		value: null,
+		type: 'Int'
+	},
+	restore_old_style: {
+		default: false,
+		value: null,
+		type: 'Bool'
+	}
+};
+function prefSetval(name, updateTo) {
+	if ('json' in prefs[name]) {
+		//updateTo must be an object
+		if (Object.prototype.toString.call(updateTo) != '[object Object]') {
+			notify('EXCEPTION: prefs[name] is json but updateTo supplied is not an object');
+			return;
+		}
+		
+		var stringify = uneval(updateTo); //JSON.stringify(updateTo);
+		myPrefListener._branch['set' + prefs[name].type + 'Pref'](name, stringify);
+		//prefs[name].value = {};
+		//for (var p in updateTo) {
+		//	prefs[name].value[p] = updateTo[p];
+		//}
+	} else {
+		//prefs[name].value = updateTo;
+		myPrefListener._branch['set' + prefs[name].type + 'Pref'](name, updateTo);
+	}
+}
+///pref listener generic stuff NO NEED TO EDIT
+/**
+ * @constructor
+ *
+ * @param {string} branch_name
+ * @param {Function} callback must have the following arguments:
+ *   branch, pref_leaf_name
+ */
+function PrefListener(branch_name, callback) {
+  // Keeping a reference to the observed preference branch or it will get
+  // garbage collected.
+  this._branch = ps.getBranch(branch_name);
+  this._defaultBranch = ps.getDefaultBranch(branch_name);
+  this._branch.QueryInterface(Ci.nsIPrefBranch2);
+  this._callback = callback;
+}
+
+PrefListener.prototype.observe = function(subject, topic, data) {
+  if (topic == 'nsPref:changed')
+    this._callback(this._branch, data);
+};
+
+/**
+ * @param {boolean=} trigger if true triggers the registered function
+ *   on registration, that is, when this method is called.
+ */
+PrefListener.prototype.register = function(trigger) {
+	//adds the observer to all prefs and gives it the seval function
+	this._branch.addObserver('', this, false);
+	for (var p in prefs) {
+		prefs[p].setval = prefSetval;
+	}
+	if (trigger) {
+		this.forceCallbacks();
+	}
+};
+
+PrefListener.prototype.forceCallbacks = function() {
+	notify('forcing pref callbacks');
+    let that = this;
+    this._branch.getChildList('', {}).
+      forEach(function (pref_leaf_name)
+        { that._callback(that._branch, pref_leaf_name); });
+};
+
+PrefListener.prototype.setDefaults = function() {
+	//sets defaults on the prefs in prefs obj
+	notify('setDefaults');
+	for (var p in prefs) {
+		this._defaultBranch['set' + prefs[p].type + 'Pref'](p, prefs[p].default);
+	}
+};
+
+PrefListener.prototype.unregister = function() {
+  if (this._branch)
+    this._branch.removeObserver('', this);
+};
+
+var myPrefListener = new PrefListener(prefPrefix, function (branch, name) {
+	//extensions.myextension[name] was changed
+	notify('callback start for pref: "' + name + '"');
+	if (!(name in prefs)) {
+		return; //added this because apparently some pref named prefPreix + '.sdk.console.logLevel' gets created when testing with builder
+	}
+
+	var refObj = {name: name}; //passed to onPreChange and onChange
+	var oldVal = 'json' in prefs[name] ? prefs[name].json : prefs[name].value;
+	try {
+		var newVal = myPrefListener._branch['get' + prefs[name].type + 'Pref'](name);
+	} catch (ex) {
+		notify('exception when getting newVal (likely the pref was removed): ' + ex);
+		var newVal = null; //note: if ex thrown then pref was removed (likely probably)
+	}
+
+	prefs[name].value = newVal === null ? prefs[name].default : newVal;
+
+	if ('json' in prefs[name]) {
+		refObj.oldValStr = oldVal;
+		oldVal = function(){ return eval('(' + oldVal + ')') }(); //JSON.parse(oldVal);
+
+		refObj.newValStr = prefs[name].value;
+		prefs[name].json = prefs[name].value;
+		prefs[name].value = function(){ return eval('(' + prefs[name].value + ')') }(); //JSON.parse(prefs[name].value);
+	}
+
+	if (prefs[name].onChange) {
+		prefs[name].onChange(oldVal, prefs[name].value, refObj);
+	}
+	notify('myPrefCallback done');
+});
+////end pref listener stuff
+//end pref stuff
+
+
+function notify(msg) {
+    Cu.reportError(selfTitle + ' - Notify - ' + msg);
+    as.showAlertNotification('nullimg', selfTitle + ' - Message', msg);
+}
+
+function tabSeld(e, window) {
+    //tabseld triggers when new tab opened and is switched to right away by default pref
+    //tabsel does not fire when new window opened and initial tab loaded
+    notify('tabSeld');
+	
+    var aTab = e.target; //equivalent of in the window loop of: aXULWindow.gBrowser.tabContainer.childNodes[7];
+    var aXULWindow = aTab.ownerDocument.defaultView;
+    var aGBrowser = aXULWindow.gBrowser;
+    var aDOMWindow = aXULWindow.QueryInterface(Ci.nsIDOMWindow);
+	
+	var findbar = aTab._findBar;
+	if(!findbar) {
+		findbar = aGBrowser.getFindBar(aTab);
+	}
+	
+	if (!findbar.GlobalFindbarInited) {
+		initTab(aTab);
+	}
+	
+	var win = findbar._browser.ownerDocument.defaultView;
+	Cu.reportError('win == aDOMWindow:  ' + (win == aDOMWindow));
+	Cu.reportError('win == aXULWindow:  ' + (win == aXULWindow));
+	var domain = findbar._browser.currentURI;
+	if (domain.prePath == 'about:')	{
+		domain = domain.prePath + domain.path;
+	} else {
+		domain = domain.prePath;
+	}
+	var val = findbar._findField.value;
+	var hid = findbar.getAttribute('hidden');
+	if (hid == 'true') {
+		hid = true;
+	} else {
+		hid = false;
+	}
+	
+	var winMatch; //holds if window is matched with respect to prefs.winScope
+	var tabMatch; //holds if tab is matched with respect to prefs.tabScope
+	var valMatch; //holds if value matches the one in the corresponding array of findbarVal
+	var hidMatch;
+	var found = false;
+	Cu.reportError('searching findbarVals for match');
+	for (var i=0; i<findbarVals.length; i++) {
+		winMatch = true;
+		tabMatch = true;
+		valMatch = false;
+		hidMatch = false;
+		if (prefs.winScope == 0) {
+			if (findbarVals[i].win != win) {
+				Cu.reportError('win mismatch ' + findbarVals[i].win + ' vs ' + win);
+				winMatch = false;
+			}
+		}
+		if (prefs.tabScope == 1) {
+			if (findbarVals[i].domain != domain) {
+				Cu.reportError('domain mismatch ' + findbarVals[i].domain + ' vs ' + domain);
+				tabMatch = false;
+			}
+		}
+
+		if (findbarVals[i].val == val) {
+			Cu.reportError('findbarVals[i].val == ' + findbarVals[i].val + ' |||||| val == ' + val);
+			valMatch = true;
+		}
+		
+		if (findbarVals[i].hid == hid) {
+			Cu.reportError('findbarVals[i].hid == ' + findbarVals[i].hid + ' |||||| hid == ' + hid);
+			hidMatch = true;
+		}
+		
+		if (winMatch && tabMatch) {
+			found = true;
+			Cu.reportError('match found in arr for this findbar');
+			if (!valMatch) {
+				Cu.reportError('val doesnt match so updating it');
+				Cu.reportError('findbarVals[i].val == ' + findbarVals[i].val + ' |||||| val == ' + val);
+				findbar.removeEventListener('change', findbarChanged, false); //remove then so add so it doesnt trigger the changed func
+				findbar._findField.value = findbarVals[i].val;
+				findbar.addEventListener('change', findbarChanged, false);
+			}
+			if (!hidMatch) {
+				Cu.reportError('updating hid as it doesnt match');
+				Cu.reportError('findbarVals[i].hid == ' + findbarVals[i].hid + ' |||||| hid == ' + hid);
+				programaticallyTogglingHid = true;
+				if (findbarVals[i].hid) {
+					//force hide bypassing animation
+					findbar.addEventListener('transitionend', function(){ findbar.removeEventListener('transitionend', arguments.callee, true); findbar.removeAttribute('style');}, true);
+					findbar.setAttribute('style','transition-property:min-width;min-width:2px;');
+					findbar.setAttribute('hidden', 'true');
+				} else {
+					//force show bypassing animation
+					findbar.addEventListener('transitionend', function(){ findbar.removeEventListener('transitionend', arguments.callee, true); findbar.removeAttribute('style');}, true);
+					findbar.setAttribute('style','transition-property:min-width;min-width:2px;');
+					findbar.removeAttribute('hidden');
+				}
+				programaticallyTogglingHid = false;
+			}
+			
+			//note: todo: this happens on tabSeld, but if winScope is not perWindow (0) then cycle through windows and see if its selectedTab is true for tabMatch, if it is then set the value and hidden appropriately
+			break;
+		}
+	}
+	
+	if (!found) {
+		Cu.reportError('do nothing, no match found');
+		/*
+		findbarVals.push({
+			win: win,
+			domain: domain,
+			val: val,
+			hid: hid
+		});
+		*/
+	}
+	
+}
+
+function initTab(aTab) {
+	Cu.reportError('initing tab');
+    var aXULWindow = aTab.ownerDocument.defaultView;
+    var aGBrowser = aXULWindow.gBrowser;
+    var aDOMWindow = aXULWindow.QueryInterface(Ci.nsIDOMWindow);
+	
+      var findbar = aTab._findBar;
+      if(!findbar) {
+        findbar = aGBrowser.getFindBar(aTab);
+      }
+      
+      var obsForWinFound = false;
+      for (var m=0; m<mObservers.length; m++) {
+        if (mObservers[m].win == aDOMWindow) {
+            mObservers[m].obs.observe(findbar, mObserverConfig);
+            obsForWinFound = true;
+            break;
+        }
+      }
+      
+	var domain = findbar._browser.currentURI;
+	if (domain.prePath == 'about:')	{
+		domain = domain.prePath + domain.path;
+	} else {
+		domain = domain.prePath;
+	}
+	  
+      if (!obsForWinFound) {
+        mObservers.push({
+            win: aDOMWindow,
+            obs: new aDOMWindow.MutationObserver(function(mutations) {
+                     mutations.forEach(function(mutation) {
+                        var attributeName = mutation.attributeName;
+                        if (attributeName == 'hidden') {
+							if (programaticallyTogglingHid == true) {
+								return;
+							}
+                            var oldValue = mutation.oldValue;
+                            Cu.reportError(attributeName + ' changed to ' + mutation.target.getAttribute('hidden'));
+                            if (oldValue == 'true') {
+								var newValue = false;
+							} else {
+								var newValue = true;
+							}
+							var found = false;
+							for (var i=0; i<findbarVals.length; i++) {
+								if (findbarVals[i].win == aDOMWindow && findbarVals[i].domain == domain) {
+									findbarVals[i].hid = newValue;
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								Cu.reportError('from mObs, did not find match in findbarVals');
+								findbarVals.push({
+									win: aDOMWindow,
+									domain: domain,
+									val: findbar.value,
+									hid: newValue
+								});
+							}
+                        }
+                     });    
+                 })
+        });
+        mObservers[mObservers.length-1].obs.observe(findbar, mObserverConfig);
+      }
+	  
+	  findbar.addEventListener('change', findbarChanged, false);
+	  
+	  findbar.GlobalFindbarInited = true;
+	  
+	var found = false;
+	for (var i=0; i<findbarVals.length; i++) {
+		if (findbarVals[i].win == aDOMWindow && findbarVals[i].domain == domain) {
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		Cu.reportError('from initTab, did not find match in findbarVals - so pushing');
+		findbarVals.push({
+			win: aDOMWindow,
+			domain: domain,
+			val: findbar._findField.value,
+			hid: findbar.getAttribute('hidden') ? true : false
+		});
+	}
+	  
+	Cu.reportError('COMPLETED - initing tab');
+}
+
+function findbarChanged(e) {
+	var findbar = e.target;
+    //alert(e.target.nodeName); //findbar
+    //alert(e.originalTarget.nodeName); //html:input
+    //alert(e.explicitOriginalTarget.nodeName); //findbar
+    //alert(e.currentTarget.nodeName); //findbar
+	
+	var obj = {
+		win: findbar._browser.ownerDocument.defaultView,
+		domain: findbar._browser.currentURI,
+		val: findbar._findField.value,
+		hid: findbar.getAttribute('hidden')
+	};
+	if (obj.hid == 'true') {
+		obj.hid = true;
+	} else {
+		obj.hid = false;
+	}
+	
+	if (obj.domain.prePath == 'about:')	{
+		obj.domain = obj.domain.prePath + obj.domain.path;
+	} else {
+		obj.domain = obj.domain.prePath;
+	}
+	
+	//i put the most recent finbarVal update at top, so this bottom loop splices it out, this is done because if not per tab, even though we store as per tab, so ya
+	for (var i=0; i<findbarVals.length; i++) {
+		if (findbarVals[i].win == obj.win && findbarVals[i].domain == obj.domain) {
+			findbarVals.splice(i, 1);
+			break;
+		}
+	}
+	
+	findbarVals.splice(0, 0, obj); //adds the new obj to top of findbarVals array
+	
+	Cu.reportError('findbarVals updated with this new val ' + uneval(findbarVals));
+	
+}
+
+var windowListener = {
+	//DO NOT EDIT HERE
+	onOpenWindow: function(aXULWindow) {
+		// Wait for the window to finish loading
+		let aDOMWindow = aXULWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow);
+		aDOMWindow.addEventListener("load", function() {
+			aDOMWindow.removeEventListener("load", arguments.callee, false);
+			windowListener.loadIntoWindow(aDOMWindow);
+		}, false);
+	},
+	onCloseWindow: function(aXULWindow) {},
+	onWindowTitleChange: function(aXULWindow, aNewTitle) {},
+	register: function() {
+		 // Load into any existing windows
+		 let XULWindows = wm.getEnumerator(null);
+		 while (XULWindows.hasMoreElements()) {
+			let aXULWindow = XULWindows.getNext();
+			let aDOMWindow = aXULWindow.QueryInterface(Ci.nsIDOMWindow);
+			windowListener.loadIntoWindow(aDOMWindow, aXULWindow);
+		 }
+		 // Listen to new windows
+		 wm.addListener(windowListener);
+	},
+	unregister: function() {
+		// Unload from any existing windows
+		let XULWindows = wm.getEnumerator(null);
+		while (XULWindows.hasMoreElements()) {
+			let aXULWindow = XULWindows.getNext();
+			let aDOMWindow = aXULWindow.QueryInterface(Ci.nsIDOMWindow);
+			windowListener.unloadFromWindow(aDOMWindow, aXULWindow);
+		}
+		//Stop listening so future added windows dont get this attached
+		wm.removeListener(windowListener);
+	},
+	//END - DO NOT EDIT HERE
+	loadIntoWindow: function (aDOMWindow, aXULWindow) {
+		var window = aDOMWindow;
+		if (!window) { return; }
+		
+		if (window.gBrowser && window.gBrowser.tabContainer) {
+            
+			window.gBrowser.tabContainer.addEventListener('TabSelect', function(e){ tabSeld(e, window) }, false);
+			
+			initTab(window.gBrowser.selectedTab);
+            
+		}
+		
+	},
+	unloadFromWindow: function (aDOMWindow, aXULWindow) {
+		var window = aDOMWindow;
+		if (!window) { return; }
+
+		//window.removeEventListener('focus', function(){ winSeld(window) }, false);
+		//window.removeEventListener('activate', function(){ winSeld(window) }, false);
+		
+		if (window.gBrowser && window.gBrowser.tabContainer) {
+    		window.gBrowser.tabContainer.removeEventListener('TabSelect', function(e){ tabSeld(e, window) }, false);
+		}
+		
+		var tabbrowser = aDOMWindow.gBrowser;
+		var numTabs = tabbrowser.browsers.length;
+		
+		for (var index = 0; index < numTabs; index++) {
+		  var aTab = tabbrowser.tabContainer.childNodes[index];
+		  var findbar = aTab._findBar;
+		  if(findbar && findbar.GlobalFindbarInited) {
+			Cu.reportError('this tab has find bar and GlobalFindbarInited');
+			delete findbar.GlobalFindbarInited;
+			findbar.removeEventListener('change', findbarChanged, false);
+		  }
+		}
+	}
+};
+
+exports.main = function (options, callbacks) {
+	//notify('load reason: "' + options.loadReason + '"');
+
+	if (options.loadReason == 'install') {
+		myPrefListener.setDefaults(); //in jetpack they get initialized somehow on install so no need for this	//on startup prefs must be initialized first thing, otherwise there is a chance that an added event listener gets called before settings are initalized
+		//setDefaults safe to run after install too though because it wont change the current pref value if it is changed from the default.
+		//good idea to always call setDefaults before register, especially if true for tirgger as if the prefs are not there the value in we are forcing it to use default value which is fine, but you know what i mean its not how i designed it, use of default is a backup plan for when something happens (like maybe pref removed)
+	}
+	myPrefListener.register(true); //true so it triggers the callback on registration, which sets value to current value
+
+	//register all observers
+	for (var o in observers) {
+		observers[o].reg();
+	}
+	
+	//load into all existing windows and into future windows on open
+	windowListener.register();
+
+};
+
+exports.onUnload = function(reason) {
+    //Cu.reportError('onUnload reason: "' + reason + '"');
+
+	//unregister all observers
+	for (var o in observers) {
+		observers[o].unreg();
+	}
+
+    //unregister all mutation observers
+    for (var m=0; m<mObservers.length; m++) {
+		mObservers[m].obs.disconnect()
+    }	
+
+	//load into all existing windows and into future windows on open
+	windowListener.unregister();
+	
+	if (reason == 'uninstall') {
+		notify('deleting pref branch: ' + prefPrefix);
+		ps.deleteBranch(prefPrefix);
+	}
+};

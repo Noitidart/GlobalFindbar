@@ -1,0 +1,125 @@
+//gBrowser.selectedTab._findBar._shouldFastFind = function(){return false}
+//updateControlState(0,false); //sets gFindBar to as if it just opened, so if phrase not found or repeat from top msg displayed its removed, false/true only makes diff for if result is 2, other reults can be 0 1 3
+try {
+    gBrowser.tabContainer.removeEventListener("TabSelect", exampleTabSelected, false);
+} catch (ex) {}
+var exampleTabSelected = function(event) {
+    window.setTimeout(function(){
+        var fm = Components.classes["@mozilla.org/focus-manager;1"].getService(Components.interfaces.nsIFocusManager);
+        var aXULWindow = window;
+        //if fm.focusedWindow == [object ChromeWindow] then it == aXULWindow
+        //if fm.focusedWindow == [object XrayWrapper [object Window]] then it is aXULWindow.gBrowser.contentWindow
+        //Cu.reportError(fm.focusedWindow)
+        //Cu.reportError(fm.focusedWindow == aXULWindow.gBrowser.contentWindow)
+        if (fm.focusedWindow == window) {
+            Cu.reportError(fm.focusedElement.nodeName);
+            var browserInTab = event.target.linkedBrowser;
+            var aFocusedWindow = {};
+            var subFocusedEl = fm.getFocusedElementForWindow(browserInTab.contentWindow, true, aFocusedWindow);
+            Cu.reportError('focused of tab contents window: ' + subFocusedEl)
+            Cu.reportError('subFocusedEl has caret = ' + subFocusedEl.
+        }
+    }, 10); //can be 1ms
+}
+gBrowser.tabContainer.addEventListener("TabSelect", exampleTabSelected, false);
+
+function cDump(obj) {
+    var tstr = '';
+    var bstr = '';
+    var fstr = '';
+    for (var b in obj) {
+        try{
+            bstr += b+'='+obj[b]+'\n';
+        } catch (e) {
+                fstr = b+'='+e+'\n';
+        }
+    }
+    tstr += '<b>BSTR::</b>\n' + bstr;
+    tstr += '\n<b>FSTR::</b>\n' + fstr;
+      
+    var cWin = Services.wm.getMostRecentWindow('navigator:browser');
+   
+    var onloadFunc = function() {
+        cWin.gBrowser.selectedTab = cWin.gBrowser.tabContainer.childNodes[cWin.gBrowser.tabContainer.childNodes.length-1];
+        newTabBrowser.removeEventListener('load', onloadFunc, true);
+        newTabBrowser.contentDocument.body.innerHTML = tstr.replace(/\n/g,'<br>')
+    };
+   
+    var newTabBrowser = cWin.gBrowser.getBrowserForTab(cWin.gBrowser.addTab('about:blank'));
+    newTabBrowser.addEventListener('load', onloadFunc, true);
+}
+
+/*
+//fm cdump
+BSTR::
+QueryInterface=function QueryInterface() {
+    [native code]
+}
+activeWindow=[object ChromeWindow]
+focusedWindow=[object ChromeWindow]
+focusedElement=[object HTMLDivElement]
+getLastFocusMethod=function getLastFocusMethod() {
+    [native code]
+}
+setFocus=function setFocus() {
+    [native code]
+}
+moveFocus=function moveFocus() {
+    [native code]
+}
+clearFocus=function clearFocus() {
+    [native code]
+}
+getFocusedElementForWindow=function getFocusedElementForWindow() {
+    [native code]
+}
+moveCaretToFocus=function moveCaretToFocus() {
+    [native code]
+}
+elementIsFocusable=function elementIsFocusable() {
+    [native code]
+}
+FLAG_RAISE=1
+FLAG_NOSCROLL=2
+FLAG_NOSWITCHFRAME=4
+FLAG_NOPARENTFRAME=8
+FLAG_BYMOUSE=4096
+FLAG_BYKEY=8192
+FLAG_BYMOVEFOCUS=16384
+FLAG_SHOWRING=1048576
+MOVEFOCUS_FORWARD=1
+MOVEFOCUS_BACKWARD=2
+MOVEFOCUS_FORWARDDOC=3
+MOVEFOCUS_BACKWARDDOC=4
+MOVEFOCUS_FIRST=5
+MOVEFOCUS_LAST=6
+MOVEFOCUS_ROOT=7
+MOVEFOCUS_CARET=8
+
+FSTR::
+
+*/
+
+
+/*
+314   _isEditable: function formHelperIsEditable(aElement) {
+315     if (!aElement)
+316       return false;
+317     let canEdit = false;
+318 
+319     if (aElement.isContentEditable || aElement.designMode == "on") {
+320       canEdit = true;
+321     } else if (aElement instanceof HTMLIFrameElement &&
+322                (aElement.contentDocument.body.isContentEditable ||
+323                 aElement.contentDocument.designMode == "on")) {
+324       canEdit = true;
+325     } else {
+326       canEdit = aElement.ownerDocument && aElement.ownerDocument.designMode == "on";
+327     }
+328 
+329     return canEdit;
+330   },
+
+let editable = (element instanceof HTMLInputElement && element.mozIsTextField(false)) || this._isEditable(element);
+
+*/

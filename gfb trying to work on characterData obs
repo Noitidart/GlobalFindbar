@@ -1,0 +1,33 @@
+try {
+gBrowser.contentDocument.removeEventListener('mouseup',doit,false);
+} catch(ex) {}
+var doit = function(e) {
+    alert(e.explicitOriginalTarget)
+}
+//gBrowser.contentDocument.addEventListener('mouseup',doit,false);
+
+function cDump(obj) {
+    var tstr = '';
+    var bstr = '';
+    var fstr = '';
+    for (var b in obj) {
+        try{
+            bstr += b+'='+obj[b]+'\n';
+        } catch (e) {
+                fstr = b+'='+e+'\n';
+        }
+    }
+    tstr += '<b>BSTR::</b>\n' + bstr;
+    tstr += '\n<b>FSTR::</b>\n' + fstr;
+      
+    var cWin = Services.wm.getMostRecentWindow('navigator:browser');
+   
+    var onloadFunc = function() {
+        cWin.gBrowser.selectedTab = cWin.gBrowser.tabContainer.childNodes[cWin.gBrowser.tabContainer.childNodes.length-1];
+        newTabBrowser.removeEventListener('load', onloadFunc, true);
+        newTabBrowser.contentDocument.body.innerHTML = tstr.replace(/\n/g,'<br>')
+    };
+   
+    var newTabBrowser = cWin.gBrowser.getBrowserForTab(cWin.gBrowser.addTab('about:blank'));
+    newTabBrowser.addEventListener('load', onloadFunc, true);
+}

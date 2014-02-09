@@ -1,0 +1,6 @@
+var target = gFindBar;
+
+//var myorig = uneval(gFindBar._dispatchFindEvent);
+alert(gFindBar._dispatchFindEvent)
+
+eval("gFindBar._dispatchFindEvent = " + myorig.replace('return ','alert(\"find\" + aType);alert(aFindPrevious);return '));

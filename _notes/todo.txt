@@ -1,0 +1,2 @@
+Bug:
+in GlobalFindBar, if using per domain, when open new tab and it is swithced to that time right away, so active load new tab, it first thinks when initiating the findbar it thinks that it is about:newtab domain even though the page didnt start loading yet so then it takesthe about:newtab findbar stuff, and then after that page loads, and user switches back to tab of same domain (tab that we just opend new tab with url from) it will have the about:newtab value etc
